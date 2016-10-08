@@ -55,7 +55,7 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
 
-#elif defined(__GLIBC__)
+#elif defined(__GLIBC__) || defined(__ANDROID__)
 #include <byteswap.h>
 
 #elif defined(__APPLE__)
@@ -88,7 +88,6 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #endif
 
 #else
-// TODO: Why is this path being built on Android? Slow.
 #define bswap_32(x) (0 | (((x) & 0x000000ff) << 24) \
                        | (((x) & 0x0000ff00) << 8)  \
                        | (((x) & 0x00ff0000) >> 8)  \

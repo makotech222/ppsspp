@@ -1,6 +1,11 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 3.6)
 project(PPSSPP)
+
+#This is supposed to work but doesn't!
+#set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 enable_language(ASM)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
@@ -28,6 +33,10 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		set(ARM ON)
 		if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
 			set(ARMV7 ON)
+			# Horrifying workaround for bug in android cmake stuff for asm files
+			if (ANDROID)
+				set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -target armv7a-none-linux-android")
+			endif()
 		endif()
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
 	  set(ARM64 ON)
@@ -185,9 +194,8 @@ if(ARM64)
 endif()
 
 if(NOT MSVC)
-
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
   if (NOT ANDROID)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
     set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
@@ -1613,9 +1621,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 
 if(ANDROID)
   set(CoreExtraLibs ${CoreExtraLibs} android)
+  if(X86_64)
+    set(CoreExtraLibs -Wl,--gc-sections -Wl,--exclude-libs,ALL)
+  endif()
 endif()	
 
-target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash
+target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash glslang
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 setup_target_project(${CoreLibName} Core)
