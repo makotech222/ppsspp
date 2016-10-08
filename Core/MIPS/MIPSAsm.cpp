@@ -7,7 +7,13 @@
 
 #include "Common/CommonTypes.h"
 
-#if defined(_WIN32) || defined(__ANDROID__)
+#if defined(_WIN32) //  || defined(__ANDROID__)
+// Temporarily turned off on Android
+#define USE_ARMIPS
+#endif
+
+
+#ifdef USE_ARMIPS
 // This has to be before basictypes to avoid a define conflict.
 #include "ext/armips/Core/Assembler.h"
 #endif
@@ -27,7 +33,7 @@ std::wstring GetAssembleError()
 	return errorText;
 }
 
-#if defined(_WIN32) || defined(__ANDROID__)
+#ifdef USE_ARMIPS
 class PspAssemblerFile: public AssemblerFile
 {
 public:
@@ -71,7 +77,7 @@ private:
 
 bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 {
-#if defined(_WIN32) || defined(__ANDROID__)
+#ifdef USE_ARMIPS
 	PspAssemblerFile file;
 	StringList errors;
 
@@ -107,4 +113,4 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 #endif
 }
 
-}
+}  // namespace

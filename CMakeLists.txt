@@ -6,8 +6,12 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-DPPSSPP)
 
-# None of these platforms support Vulkan yet.
-add_definitions(-DNO_VULKAN)
+# Of the CMake platforms, only Android supports Vulkan.
+if(NOT ANDROID)
+  add_definitions(-DNO_VULKAN)
+else()
+  set(VULKAN ON)
+endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(_ARCH_64 1)
@@ -24,12 +28,17 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
 			set(ARMV7 ON)
 		endif()
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
+	  set(ARM64 ON)
+	  add_definitions(-DARM64)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR
 		${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR
 		${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
 		set(X86 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
 		set(MIPS ON)
+	else()
+    message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
 endif()
 
@@ -149,29 +158,33 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(ARMV7)
-	message("Building for ARMv7, ${CMAKE_BUILD_TYPE}")
+	message("Generating for ARMv7, ${CMAKE_BUILD_TYPE}")
 elseif(ARM)
-	message("Building for ARMv6, ${CMAKE_BUILD_TYPE}")
+	message("Generating for ARMv6, ${CMAKE_BUILD_TYPE}")
 elseif(MIPS AND X86)
-	message("Building for MIPS in x86 mode, ${CMAKE_BUILD_TYPE}")
+	message("Generating for MIPS in x86 mode, ${CMAKE_BUILD_TYPE}")
 elseif(MIPS)
-	message("Buildings for MIPS, ${CMAKE_BUILD_TYPE}")
+	message("Generating for MIPS, ${CMAKE_BUILD_TYPE}")
 elseif(X86)
-	message("Building for x86, ${CMAKE_BUILD_TYPE}")
+	message("Generating for x86, ${CMAKE_BUILD_TYPE}")
+elseif(ARM64)
+  message("Generating for ARMv8, ${CMAKE_BUILD_TYPE}")
 else()
-	message("Building for Generic, ${CMAKE_BUILD_TYPE}")
+	message("What? Generating for Generic, ${CMAKE_BUILD_TYPE}")
 endif()
 
 if(NOT MSVC)
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
-	set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
-	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
-
+  if (NOT ANDROID)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
+    set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+  endif()
+ 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
@@ -273,6 +286,20 @@ set(CommonWindows
 	Common/stdafx.h)
 source_group(Windows FILES ${CommonWindows})
 
+if(VULKAN)
+  set(CommonExtra ${CommonExtra}
+    Common/Vulkan/SPIRVDisasm.cpp
+    Common/Vulkan/SPIRVDisasm.h
+    Common/Vulkan/VulkanContext.cpp
+    Common/Vulkan/VulkanContext.h
+    Common/Vulkan/VulkanImage.cpp
+    Common/Vulkan/VulkanImage.h
+    Common/Vulkan/VulkanLoader.cpp
+    Common/Vulkan/VulkanLoader.h
+    Common/Vulkan/VulkanMemory.cpp
+    Common/Vulkan/VulkanMemory.h)
+endif()
+
 add_library(Common STATIC
 	${CommonX86}
 	${CommonARM}
@@ -373,6 +400,8 @@ if(USE_FFMPEG)
 					set(PLATFORM_ARCH "android/arm")
 				elseif(X86)
 					set(PLATFORM_ARCH "android/x86")
+				elseif(ARM64)
+				  set(PLATFORM_ARCH "android/arm64")
 				endif()
 			elseif(IOS)
 				set(PLATFORM_ARCH "ios/universal")
@@ -690,6 +719,14 @@ endif()
 
 
 if(ANDROID)
+  set(nativeExtra ${nativeExtra}
+    Common/GL/GLInterface/EGLAndroid.cpp
+    Common/GL/GLInterface/EGLAndroid.h
+    Common/GL/GLInterface/EGL.cpp
+    Common/GL/GLInterface/EGL.h
+    Common/GL/GLInterface/GLInterface.cpp
+    Common/GL/GLInterfaceBase.h)
+
 	set(nativeExtra ${nativeExtra}
 		ext/native/base/NativeApp.h
 		android/jni/app-android.cpp
@@ -793,11 +830,19 @@ set(NativeAppSource
 	UI/ProfilerDraw.cpp
 	UI/ui_atlas.cpp
 	UI/ComboKeyMappingScreen.cpp)
+
 if(ANDROID)
 	if (ARM)
 		set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
+  elseif (ARM64)
+		set(NativeAppSource ${NativeAppSource} android/jni/Arm64EmitterTest.cpp)
 	endif()
 	set(nativeExtra ${nativeExtra} ${NativeAppSource})
+endif()
+
+set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp)
+if(VULKAN)
+  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS} ext/native/thin3d/thin3d_vulkan.cpp)
 endif()
 
 add_library(native STATIC
@@ -902,7 +947,7 @@ add_library(native STATIC
 	ext/native/profiler/profiler.h
 	ext/native/thin3d/thin3d.cpp
 	ext/native/thin3d/thin3d.h
-	ext/native/thin3d/thin3d_gl.cpp
+	${THIN3D_PLATFORMS}
 	ext/native/thread/executor.cpp
 	ext/native/thread/executor.h
 	ext/native/thread/prioritizedworkqueue.cpp
@@ -991,6 +1036,14 @@ include_directories(ext/xxhash)
 set(CoreExtra)
 set(CoreExtraLibs)
 
+if(ANDROID)
+  set(CoreExtraLibs ${CoreExtraLibs} native_audio)
+endif()
+
+if(VULKAN)
+  set(CoreExtraLibs ${CoreExtraLibs} glslang)
+endif()
+
 set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompALU.cpp
 	Core/MIPS/IR/IRCompBranch.cpp
@@ -1045,7 +1098,7 @@ elseif(ARM64)
 		Core/MIPS/ARM64/Arm64RegCache.h
 		Core/MIPS/ARM64/Arm64RegCacheFPU.cpp
 		Core/MIPS/ARM64/Arm64RegCacheFPU.h
-		GPU/Common/VertexDecoderArm.cpp
+		GPU/Common/VertexDecoderArm64.cpp
 		Core/Util/DisArm64.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
@@ -1090,6 +1143,68 @@ endif()
 
 if(ARMV7)
 	set(CORE_NEON Core/Util/AudioFormatNEON.cpp Core/Util/AudioFormatNEON.h)
+endif()
+
+set(GPU_GLES
+	GPU/GLES/DepalettizeShader.cpp
+	GPU/GLES/DepalettizeShader.h
+	GPU/GLES/FBO.cpp
+	GPU/GLES/FBO.h
+	GPU/GLES/GPU_GLES.cpp
+	GPU/GLES/GPU_GLES.h
+	GPU/GLES/GLStateCache.cpp
+	GPU/GLES/GLStateCache.h
+	GPU/GLES/FragmentShaderGenerator.cpp
+	GPU/GLES/FragmentShaderGenerator.h
+	GPU/GLES/FragmentTestCache.cpp
+	GPU/GLES/FragmentTestCache.h
+	GPU/GLES/Framebuffer.cpp
+	GPU/GLES/Framebuffer.h
+	GPU/GLES/ShaderManager.cpp
+	GPU/GLES/ShaderManager.h
+	GPU/GLES/StateMapping.cpp
+	GPU/GLES/StateMapping.h
+	GPU/GLES/StencilBuffer.cpp
+	GPU/GLES/TextureCache.cpp
+	GPU/GLES/TextureCache.h
+	GPU/GLES/TextureScaler.cpp
+	GPU/GLES/TextureScaler.h
+	GPU/GLES/DrawEngineGLES.cpp
+	GPU/GLES/DrawEngineGLES.h
+	GPU/GLES/VertexShaderGenerator.cpp
+	GPU/GLES/VertexShaderGenerator.h
+)
+
+set(GPU_VULKAN
+  GPU/Vulkan/DepalettizeShaderVulkan.cpp
+	GPU/Vulkan/DepalettizeShaderVulkan.h
+	GPU/Vulkan/DrawEngineVulkan.cpp
+	GPU/Vulkan/DrawEngineVulkan.h
+	GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp
+	GPU/Vulkan/FragmentShaderGeneratorVulkan.h
+	GPU/Vulkan/FramebufferVulkan.cpp
+	GPU/Vulkan/FramebufferVulkan.h
+	GPU/Vulkan/GPU_Vulkan.cpp
+	GPU/Vulkan/GPU_Vulkan.h
+	GPU/Vulkan/PipelineManagerVulkan.cpp
+	GPU/Vulkan/PipelineManagerVulkan.h
+	GPU/Vulkan/ShaderManagerVulkan.cpp
+	GPU/Vulkan/ShaderManagerVulkan.h
+	GPU/Vulkan/StateMappingVulkan.cpp
+	GPU/Vulkan/StateMappingVulkan.h
+	GPU/Vulkan/TextureCacheVulkan.cpp
+	GPU/Vulkan/TextureCacheVulkan.h
+	GPU/Vulkan/TextureScalerVulkan.cpp
+	GPU/Vulkan/TextureScalerVulkan.h
+	GPU/Vulkan/VertexShaderGeneratorVulkan.cpp
+	GPU/Vulkan/VertexShaderGeneratorVulkan.h
+	GPU/Vulkan/VulkanUtil.cpp
+	GPU/Vulkan/VulkanUtil.h
+)
+
+set(GPU_IMPLS ${GPU_GLES})
+if(VULKAN)
+  set(GPU_IMPLS ${GPU_IMPLS} ${GPU_VULKAN})
 endif()
 
 if(ARMV7)
@@ -1482,8 +1597,14 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${GPU_SOURCES}
 	Globals.h
 	git-version.cpp)
+
+if(ANDROID)
+  set(CoreExtraLibs ${CoreExtraLibs} android)
+endif()	
+
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
@@ -1497,6 +1618,42 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
+add_library(glslang
+  ext/glslang/glslang/GenericCodeGen/CodeGen.cpp
+  ext/glslang/glslang/GenericCodeGen/Link.cpp
+  ext/glslang/glslang/MachineIndependent/Constant.cpp
+  ext/glslang/glslang/MachineIndependent/glslang_tab.cpp
+  ext/glslang/glslang/MachineIndependent/InfoSink.cpp
+  ext/glslang/glslang/MachineIndependent/Initialize.cpp
+  ext/glslang/glslang/MachineIndependent/Intermediate.cpp
+  ext/glslang/glslang/MachineIndependent/intermOut.cpp
+  ext/glslang/glslang/MachineIndependent/IntermTraverse.cpp
+  ext/glslang/glslang/MachineIndependent/limits.cpp
+  ext/glslang/glslang/MachineIndependent/linkValidate.cpp
+  ext/glslang/glslang/MachineIndependent/parseConst.cpp
+  ext/glslang/glslang/MachineIndependent/ParseHelper.cpp
+  ext/glslang/glslang/MachineIndependent/PoolAlloc.cpp
+  ext/glslang/glslang/MachineIndependent/reflection.cpp
+  ext/glslang/glslang/MachineIndependent/RemoveTree.cpp
+  ext/glslang/glslang/MachineIndependent/Scan.cpp
+  ext/glslang/glslang/MachineIndependent/ShaderLang.cpp
+  ext/glslang/glslang/MachineIndependent/SymbolTable.cpp
+  ext/glslang/glslang/MachineIndependent/Versions.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/Pp.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/PpAtom.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/PpContext.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/PpMemory.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/PpSymbols.cpp
+  ext/glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp
+  ext/glslang/glslang/OSDependent/Unix/ossource.cpp
+  ext/glslang/SPIRV/disassemble.cpp
+  ext/glslang/SPIRV/doc.cpp
+  ext/glslang/SPIRV/GlslangToSpv.cpp
+  ext/glslang/SPIRV/InReadableOrder.cpp
+  ext/glslang/SPIRV/SpvBuilder.cpp
+  ext/glslang/SPIRV/SPVRemapper.cpp
+  ext/glslang/OGLCompilersDLL/InitializeDll.cpp)
 
 if(WIN32)
 	add_executable(PPSSPPWindows WIN32
@@ -1676,5 +1833,3 @@ if(IOS)
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
 	)
 endif()
-
-#include(CPack)

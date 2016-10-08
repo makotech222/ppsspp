@@ -50,6 +50,7 @@ PPSSPPControls.dat
 # Gradle/Android Studio
 .gradle
 .idea
+*.iml
 
 
 Logs
