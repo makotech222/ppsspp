@@ -32,10 +32,10 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
 	  set(ARM64 ON)
 	  add_definitions(-DARM64)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64")
+    set(X86_64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
 		set(X86 ON)
-	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64")
-    set(X86_64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
 		set(MIPS ON)
 	else()
@@ -185,7 +185,9 @@ if(ARM64)
 endif()
 
 if(NOT MSVC)
+
   if (NOT ANDROID)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
     set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
@@ -198,6 +200,8 @@ if(NOT MSVC)
  
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
+
+	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_definitions(-fno-strict-aliasing)
 	if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
@@ -222,7 +226,6 @@ if(NOT MSVC)
 		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -1000,7 +1003,12 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES} atomic)
+SET(ATOMIC_LIB)
+if(ANDROID)
+	SET(ATOMIC_LIB atomic)
+endif()
+
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES} ${ATOMIC_LIB})
 
 if(ANDROID)
 	target_link_libraries(native log EGL OpenSLES)
