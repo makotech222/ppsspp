@@ -28,8 +28,28 @@ android {
 			path '../CMakeLists.txt'
 		}
 	}
+
+	sourceSets {
+		main {
+			assets.srcDirs = [
+					'../assets/ui_atlas.zim',
+					'../assets/ppge_atlas.zim',
+					'../assets/compat.ini',
+					'../assets/knownfuncs.ini',
+					'../assets/langregion.ini',
+					'../assets/rargray.png',
+					'../assets/unknnwn.png',
+					'../assets/ui_atlas.zim',
+					'../lang'
+			]
+		}
+	}
 }
 
 dependencies {
 	compile project(':com.bda.controller')
+}
+
+afterEvaluate {
+	android.sourceSets.main.assets.getSrcDirs().each{println it}
 }
