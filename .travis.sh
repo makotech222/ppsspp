@@ -110,9 +110,7 @@ travis_script() {
             export NDK_TOOLCHAIN_VERSION=clang
         fi
 
-        pushd android
-        ./ab.sh -j2 APP_ABI=$APP_ABI
-        popd
+        ./gradlew assembleRelease
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
         ./b.sh --ios
