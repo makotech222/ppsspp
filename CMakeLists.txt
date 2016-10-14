@@ -41,7 +41,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
 	  set(ARM64 ON)
 	  add_definitions(-DARM64)
-	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64")
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^AMD64")
 		set(X86 ON)
     set(X86_64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
@@ -238,6 +238,8 @@ if(NOT MSVC)
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	add_definitions(-D_UNICODE -DUNICODE)
+	add_definitions(-DUSING_WIN_UI)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 endif()
@@ -443,12 +445,22 @@ if(USE_FFMPEG)
 				else()
 					set(PLATFORM_ARCH "linux/x86")
 				endif()
+			elseif(WIN32)
+				if(X86_64)
+					set(PLATFORM_ARCH "Windows/x86_64")
+				elseif(X86)
+					set(PLATFORM_ARCH "Windows/x86")
+				endif()
 			endif()
 			# Using static libraries
 			if (DEFINED PLATFORM_ARCH)
 				include_directories(ffmpeg/${PLATFORM_ARCH}/include)
 				link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
-				set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
+				if(WIN32)
+					set(FFMPEG_LIBRARIES avformat avcodec avutil swresample swscale)
+				else()
+					set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
+				endif()
 			else()
 				# Manual definition of system library locations by the user.
 				if (DEFINED FFMPEG_INCLUDE_PATH)
@@ -817,6 +829,8 @@ elseif(SDL2_FOUND)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL)
 	endif()
 	set(TargetBin PPSSPPSDL)
+elseif(WIN32)
+	# Don't care about SDL.
 else()
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
@@ -1616,7 +1630,16 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
+if (NOT WIN32)
+	set(glslang_platform
+		ext/glslang/glslang/OSDependent/Unix/ossource.cpp)
+else()
+	set(glslang_platform
+		ext/glslang/glslang/OSDependent/Windows/ossource.cpp)
+endif()
+
 add_library(glslang
+	${glslang_platform}
   ext/glslang/glslang/GenericCodeGen/CodeGen.cpp
   ext/glslang/glslang/GenericCodeGen/Link.cpp
   ext/glslang/glslang/MachineIndependent/Constant.cpp
@@ -1644,7 +1667,7 @@ add_library(glslang
   ext/glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp
   ext/glslang/glslang/MachineIndependent/preprocessor/PpSymbols.cpp
   ext/glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp
-  ext/glslang/glslang/OSDependent/Unix/ossource.cpp
+	ext/glslang/glslang/OSDependent/osinclude.h
   ext/glslang/SPIRV/disassemble.cpp
   ext/glslang/SPIRV/doc.cpp
   ext/glslang/SPIRV/GlslangToSpv.cpp
@@ -1655,12 +1678,13 @@ add_library(glslang
 
 if(WIN32)
 	add_executable(PPSSPPWindows WIN32
-		Windows/Breakpoints.h
 		Windows/DSoundStream.cpp
 		Windows/DSoundStream.h
 		Windows/Debugger/CPURegsInterface.h
 		Windows/Debugger/BreakpointWindow.cpp
 		Windows/Debugger/BreakpointWindow.h
+		Windows/Debugger/DumpMemoryWindow.cpp
+		Windows/Debugger/DumpMemoryWindow.h
 		Windows/Debugger/CtrlDisAsmView.cpp
 		Windows/Debugger/CtrlDisAsmView.h
 		Windows/Debugger/CtrlMemView.cpp
@@ -1678,27 +1702,22 @@ if(WIN32)
 		Windows/Debugger/Debugger_Lists.h
 		Windows/Debugger/Debugger_Misc.cpp
 		Windows/Debugger/Debugger_Misc.h
-#		Windows/Debugger/Debugger_Profiler.cpp
-#		Windows/Debugger/Debugger_Profiler.h
 		Windows/Debugger/Debugger_SymbolMap.h
 		Windows/Debugger/Debugger_VFPUDlg.cpp
 		Windows/Debugger/Debugger_VFPUDlg.h
 		Windows/Debugger/SimpleELF.h
-#		Windows/DlgDynaView.cpp
-#		Windows/DlgDynaView.h
 		Windows/EmuThread.cpp
 		Windows/EmuThread.h
+		Windows/GeDebugger/GeDebugger.cpp
 		Windows/Globals.cpp
+		Windows/GPU/WindowsGLContext.cpp
+		Windows/GPU/WindowsVulkanContext.cpp
 		Windows/InputBox.cpp
 		Windows/InputBox.h
 		Windows/InputDevice.cpp
 		Windows/InputDevice.h
 		Windows/KeyboardDevice.cpp
 		Windows/KeyboardDevice.h
-		Windows/MIPSCompALU.h
-		Windows/MIPSCompBranch.h
-		Windows/OpenGLBase.cpp
-		Windows/OpenGLBase.h
 		Windows/W32Util/DialogManager.cpp
 		Windows/W32Util/DialogManager.h
 		Windows/W32Util/Misc.cpp
@@ -1707,12 +1726,14 @@ if(WIN32)
 		Windows/W32Util/PropertySheet.h
 		Windows/W32Util/ShellUtil.cpp
 		Windows/W32Util/ShellUtil.h
-		Windows/W32Util/XPTheme.h
-		Windows/WindowsFileSystem.h
+		Windows/W32Util/TabControl.cpp
+		Windows/W32Util/TabControl.h
 		Windows/WindowsHost.cpp
 		Windows/WindowsHost.h
-		Windows/WndMainWindow.cpp
-		Windows/WndMainWindow.h
+		Windows/MainWindow.cpp
+		Windows/MainWindow.h
+		Windows/MainWindowMenu.cpp
+		Windows/MainWindowMenu.h
 		Windows/XPTheme.h
 		Windows/XinputDevice.cpp
 		Windows/XinputDevice.h

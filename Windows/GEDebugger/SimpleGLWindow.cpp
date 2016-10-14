@@ -22,7 +22,7 @@
 #include "Common/Common.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
-const PTCHAR SimpleGLWindow::windowClass = _T("SimpleGLWindow");
+const wchar_t *SimpleGLWindow::windowClass = _T("SimpleGLWindow");
 
 void SimpleGLWindow::RegisterClass() {
 	WNDCLASSEX wndClass;
