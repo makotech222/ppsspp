@@ -12,11 +12,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 add_definitions(-DPPSSPP)
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
-# Of the CMake platforms, only Android supports Vulkan.
-if(NOT ANDROID)
-  add_definitions(-DNO_VULKAN)
-else()
+# Of the CMake platforms, we only support Vulkan on Android and Windows.
+if(ANDROID OR WIN32)
   set(VULKAN ON)
+else()
+  add_definitions(-DNO_VULKAN)
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -42,6 +42,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	  set(ARM64 ON)
 	  add_definitions(-DARM64)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64")
+		set(X86 ON)
     set(X86_64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
 		set(X86 ON)
@@ -308,19 +309,17 @@ set(CommonWindows
 	Common/stdafx.h)
 source_group(Windows FILES ${CommonWindows})
 
-if(VULKAN)
-  set(CommonExtra ${CommonExtra}
-    Common/Vulkan/SPIRVDisasm.cpp
-    Common/Vulkan/SPIRVDisasm.h
-    Common/Vulkan/VulkanContext.cpp
-    Common/Vulkan/VulkanContext.h
-    Common/Vulkan/VulkanImage.cpp
-    Common/Vulkan/VulkanImage.h
-    Common/Vulkan/VulkanLoader.cpp
-    Common/Vulkan/VulkanLoader.h
-    Common/Vulkan/VulkanMemory.cpp
-    Common/Vulkan/VulkanMemory.h)
-endif()
+set(CommonVulkan ${CommonExtra}
+	Common/Vulkan/SPIRVDisasm.cpp
+	Common/Vulkan/SPIRVDisasm.h
+	Common/Vulkan/VulkanContext.cpp
+	Common/Vulkan/VulkanContext.h
+	Common/Vulkan/VulkanImage.cpp
+	Common/Vulkan/VulkanImage.h
+	Common/Vulkan/VulkanLoader.cpp
+	Common/Vulkan/VulkanLoader.h
+	Common/Vulkan/VulkanMemory.cpp
+	Common/Vulkan/VulkanMemory.h)
 
 add_library(Common STATIC
 	${CommonX86}
@@ -329,6 +328,7 @@ add_library(Common STATIC
 	${CommonMIPS}
 	${CommonFake}
 	${CommonWindows}
+	${CommonVulkan}
 	Common/ColorConv.cpp
 	Common/ColorConv.h
 	Common/ChunkFile.cpp
@@ -1228,10 +1228,12 @@ if(VULKAN)
   set(GPU_IMPLS ${GPU_IMPLS} ${GPU_VULKAN})
 endif()
 
-if(ARMV7)
+if(ARMV7 OR ARM64)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 set(GPU_SOURCES
+	${GPU_IMPLS}
+	${GPU_NEON}
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FramebufferCommon.cpp
@@ -1260,7 +1262,6 @@ set(GPU_SOURCES
 	GPU/Common/TextureCacheCommon.h
 	GPU/Common/TextureScalerCommon.cpp
 	GPU/Common/TextureScalerCommon.h
-	${GPU_NEON}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h
@@ -1268,33 +1269,6 @@ set(GPU_SOURCES
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
-	GPU/GLES/DepalettizeShader.cpp
-	GPU/GLES/DepalettizeShader.h
-	GPU/GLES/FBO.cpp
-	GPU/GLES/FBO.h
-	GPU/GLES/GPU_GLES.cpp
-	GPU/GLES/GPU_GLES.h
-	GPU/GLES/GLStateCache.cpp
-	GPU/GLES/GLStateCache.h
-	GPU/GLES/FragmentShaderGenerator.cpp
-	GPU/GLES/FragmentShaderGenerator.h
-	GPU/GLES/FragmentTestCache.cpp
-	GPU/GLES/FragmentTestCache.h
-	GPU/GLES/Framebuffer.cpp
-	GPU/GLES/Framebuffer.h
-	GPU/GLES/ShaderManager.cpp
-	GPU/GLES/ShaderManager.h
-	GPU/GLES/StateMapping.cpp
-	GPU/GLES/StateMapping.h
-	GPU/GLES/StencilBuffer.cpp
-	GPU/GLES/TextureCache.cpp
-	GPU/GLES/TextureCache.h
-	GPU/GLES/TextureScaler.cpp
-	GPU/GLES/TextureScaler.h
-	GPU/GLES/DrawEngineGLES.cpp
-	GPU/GLES/DrawEngineGLES.h
-	GPU/GLES/VertexShaderGenerator.cpp
-	GPU/GLES/VertexShaderGenerator.h
 	GPU/GPUInterface.h
 	GPU/GeDisasm.cpp
 	GPU/GeDisasm.h

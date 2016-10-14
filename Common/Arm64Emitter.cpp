@@ -320,7 +320,7 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 #if defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
-#elif !defined(_M_IX86) && !defined(_M_X64)
+#elif defined(ARM64)
 	// Code from Dolphin, contributed by the Mono project.
 
 	// Don't rely on GCC's __clear_cache implementation, as it caches
