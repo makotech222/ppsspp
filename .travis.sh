@@ -25,6 +25,10 @@ travis_before_install() {
         sudo apt-get update -qq
         sudo apt-get install software-properties-common aria2 pv build-essential libgl1-mesa-dev libglu1-mesa-dev -qq
     fi
+
+    wget https://github.com/Commit451/android-cmake-installer/releases/download/1.1.0/install-cmake.sh
+    chmod +x install-cmake.sh
+    ./install-cmake.sh
 }
 
 setup_ccache_script() {
