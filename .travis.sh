@@ -25,13 +25,6 @@ travis_before_install() {
         sudo apt-get update -qq
         sudo apt-get install software-properties-common aria2 pv build-essential libgl1-mesa-dev libglu1-mesa-dev -qq
     fi
-
-    if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
-        export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
-        wget https://github.com/Commit451/android-cmake-installer/releases/download/1.1.0/install-cmake.sh
-        chmod +x install-cmake.sh
-        ./install-cmake.sh
-    fi
 }
 
 setup_ccache_script() {
@@ -71,6 +64,13 @@ travis_install() {
         download_extract "https://cmake.org/files/v3.6/cmake-3.6.2-Linux-x86_64.tar.gz" cmake-3.6.2-Linux-x86_64.tar.gz
     fi
 
+    if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
+        export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
+        wget https://github.com/Commit451/android-cmake-installer/releases/download/1.1.0/install-cmake.sh
+        chmod +x install-cmake.sh
+        ./install-cmake.sh
+    fi
+
     # Ensure we're using ccache
     if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
         export CXX="ccache clang" CC="ccache clang"
@@ -103,6 +103,7 @@ travis_script() {
     if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
         export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
 
+        chmod +x gradlew
         ./gradlew assembleRelease
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
