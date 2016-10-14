@@ -2,7 +2,7 @@
 
 export USE_CCACHE=1
 export NDK_CCACHE=ccache
-NDK_VER=android-ndk-r12b
+NDK_VER=android-ndk-r13
 
 download_extract() {
     aria2c -x 16 $1 -o $2
@@ -26,9 +26,12 @@ travis_before_install() {
         sudo apt-get install software-properties-common aria2 pv build-essential libgl1-mesa-dev libglu1-mesa-dev -qq
     fi
 
-    wget https://github.com/Commit451/android-cmake-installer/releases/download/1.1.0/install-cmake.sh
-    chmod +x install-cmake.sh
-    ./install-cmake.sh
+    if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
+        export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
+        wget https://github.com/Commit451/android-cmake-installer/releases/download/1.1.0/install-cmake.sh
+        chmod +x install-cmake.sh
+        ./install-cmake.sh
+    fi
 }
 
 setup_ccache_script() {
@@ -68,13 +71,6 @@ travis_install() {
         download_extract "https://cmake.org/files/v3.6/cmake-3.6.2-Linux-x86_64.tar.gz" cmake-3.6.2-Linux-x86_64.tar.gz
     fi
 
-    # Android NDK + GCC 4.8
-    if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
-        free -m
-        sudo apt-get install ant -qq
-        download_extract_zip http://dl.google.com/android/repository/${NDK_VER}-linux-x86_64.zip ${NDK_VER}-linux-x86_64.zip
-    fi
-
     # Ensure we're using ccache
     if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
         export CXX="ccache clang" CC="ccache clang"
@@ -106,9 +102,6 @@ travis_script() {
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
         export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
-        if [[ "$CXX" = *clang* ]]; then
-            export NDK_TOOLCHAIN_VERSION=clang
-        fi
 
         ./gradlew assembleRelease
     fi
