@@ -12,10 +12,16 @@ download_extract() {
 # This is used for the Android NDK.
 download_extract_zip() {
     aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2
-    # This resumes the download, in case it failed.
+    # This resumes the download, in case it failed (happens sometimes.)
     aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2
 
     unzip $2 2>&1 | pv > /dev/null
+}
+
+force_java8() {
+    sudo update-java-alternatives -v -s java-8-oracle
+    # For some reason, that isn't updating JAVA_HOME, although it should.
+    export JAVA_HOME=/usr/lib/jvm/java-8-oracle
 }
 
 travis_before_install() {
@@ -46,7 +52,7 @@ travis_install() {
             sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
         fi
         if [ "$QT" = "TRUE" ]; then
-            sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
+            sudo add-apt-repository ppa:ubuntu-sdk-team/ppa -y
         fi
 
         sudo apt-get update
@@ -65,7 +71,18 @@ travis_install() {
     fi
 
     if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
-        export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
+        mkdir -p ~/.android
+        force_java8
+
+        # Install the NDK - the SDK manager won't do this from cli.
+        download_extract_zip http://dl.google.com/android/repository/${NDK_VER}-linux-x86_64.zip ${NDK_VER}-linux-x86_64.zip
+
+        # CMake needs a newer libstdc.
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update -qq
+        sudo apt-get install -qq libstdc++6-4.7-dev
+
+        # We also need to install the latest cmake for the SDK (also not cli.)
         wget https://github.com/Commit451/android-cmake-installer/releases/download/1.1.0/install-cmake.sh
         chmod +x install-cmake.sh
         ./install-cmake.sh
@@ -101,10 +118,13 @@ travis_script() {
         fi
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
-        export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER}
+        force_java8
+
+        export ANDROID_NDK_HOME=$(pwd)/$NDK_VER
+        export PATH=$ANDROID_NDK_HOME:$PATH
 
         chmod +x gradlew
-        ./gradlew assembleRelease
+        ./gradlew --debug assembleRelease
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
         ./b.sh --ios

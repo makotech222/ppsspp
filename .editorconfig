@@ -19,6 +19,13 @@ end_of_line = lf
 indent_style = space
 indent_size = 4
 
+[*.yml]
+indent_style = space
+indent_size = 2
+
+[.travis.sh]
+indent_style = space
+
 [Core/Dialog/PSPOskDialog.cpp]
 charset = utf-16le
 
