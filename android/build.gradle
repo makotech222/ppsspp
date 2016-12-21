@@ -1,0 +1,60 @@
+apply plugin: 'com.android.application'
+android {
+	compileSdkVersion 25
+	buildToolsVersion '23.0.2'
+	defaultConfig {
+		applicationId 'org.ppsspp.ppsspp'
+		minSdkVersion 9
+		targetSdkVersion 25
+		ndk {
+			abiFilters 'armeabi-v7a', 'x86', 'arm64-v8a', 'x86_64'
+		}
+		externalNativeBuild {
+			cmake {
+				// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
+				arguments '-DANDROID=true', '-DANDROID_PLATFORM=android-15', '-DANDROID_TOOLCHAIN=clang', '-DANDROID_STL=gnustl_static', '-DANDROID_ARM_NEON=TRUE'
+			}
+		}
+
+	}
+
+	buildTypes {
+		release {
+			minifyEnabled = false
+		}
+	}
+
+	externalNativeBuild {
+		cmake {
+			path '../CMakeLists.txt'
+		}
+	}
+
+	sourceSets {
+		main {
+			manifest.srcFile 'AndroidManifest.xml'
+			res.srcDirs = ['res']
+			java.srcDirs = ['src']
+			aidl.srcDirs = ['src']
+			resources.srcDirs = ['src']
+			assets.srcDirs = [
+					'../assets/ui_atlas.zim',
+					'../assets/ppge_atlas.zim',
+					'../assets/compat.ini',
+					'../assets/knownfuncs.ini',
+					'../assets/langregion.ini',
+					'../assets/rargray.png',
+					'../assets/unknnwn.png',
+					'../assets/ui_atlas.zim',
+					'../lang'
+			]
+		}
+	}
+}
+afterEvaluate {
+	android.sourceSets.main.assets.getSrcDirs().each { println it }
+}
+
+dependencies {
+	compile project(':com.bda.controller')
+}
