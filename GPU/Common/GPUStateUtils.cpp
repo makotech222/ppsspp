@@ -31,7 +31,6 @@
 
 #include "GPU/Common/GPUStateUtils.h"
 
-
 bool CanUseHardwareTransform(int prim) {
 	if (!g_Config.bHardwareTransform)
 		return false;
