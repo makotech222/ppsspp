@@ -30,7 +30,6 @@
 #include "Globals.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "Core/Config.h"
 
 struct GLSLProgram;
 class TextureCacheGLES;

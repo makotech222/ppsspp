@@ -937,7 +937,7 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 SoundTouch ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET glew)
   target_link_libraries(native glew)
 endif()
@@ -1468,6 +1468,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
+	Core/HW/AsyncAudioQueue.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MpegDemux.cpp
@@ -1480,6 +1481,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SasReverb.h
 	Core/HW/StereoResampler.cpp
 	Core/HW/StereoResampler.h
+	Core/HW/StereoStretcher.cpp
+	Core/HW/StereoStretcher.h
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
@@ -1552,6 +1555,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
+	Core/Util/TimeStretcher.cpp
+	Core/Util/TimeStretcher.h
 	${CORE_NEON}
 	${GPU_SOURCES}
 	Globals.h
