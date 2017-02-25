@@ -40,10 +40,17 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HW/AsyncAudioQueue.h"
 #include "Core/HW/StereoResampler.h"
+#include "Core/HW/StereoStretcher.h"
 #include "Core/Util/AudioFormat.h"
 
-StereoResampler resampler;
+static StereoStretcher timestretcher;
+static StereoResampler resampler;
+
+static AsyncAudioQueue *audioQueue = nullptr;
+static int lastQueueMode = -1;
+
 AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -101,6 +108,18 @@ static void __AudioCPUMHzChange() {
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
 }
 
+static void UpdateAudioQueue() {
+	if (lastQueueMode != (int)g_Config.bAudioTimestretch) {
+		if (audioQueue)
+			audioQueue->Clear();
+		if (g_Config.bAudioTimestretch) {
+			audioQueue = &timestretcher;
+		} else {
+			audioQueue = &resampler;
+		}
+		lastQueueMode = g_Config.bAudioTimestretch;
+	}
+}
 
 void __AudioInit() {
 	memset(&g_AudioDebugStats, 0, sizeof(g_AudioDebugStats));
@@ -142,7 +161,9 @@ void __AudioInit() {
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
+	timestretcher.Clear();
 	resampler.Clear();
+
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -159,19 +180,19 @@ void __AudioDoState(PointerWrap &p) {
 	p.Do(mixFrequency);
 
 	if (s >= 2) {
-		resampler.DoState(p);
+		// Dummy.
+		auto inner = p.Section("resampler", 1);
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		resampler.Clear();
+		audioQueue->Clear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
 	p.Do(chanCount);
-	if (chanCount != ARRAY_SIZE(chans))
-	{
+	if (chanCount != ARRAY_SIZE(chans)) {
 		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
 		return;
 	}
@@ -256,8 +277,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	} else {
 		// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue.
 		// This way we can optimally shift by 16.
-		leftVol <<=1;
-		rightVol <<=1;
+		leftVol <<= 1;
+		rightVol <<= 1;
 
 		if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
 			const u32 totalSamples = chan.sampleCount * 2;
@@ -379,8 +400,11 @@ void __AudioUpdate() {
 		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
+	// Need to change audio queue?
+	UpdateAudioQueue();
+
 	if (g_Config.bEnableSound) {
-		resampler.PushSamples(mixBuffer, hwBlockSize);
+		audioQueue->PushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
 		if (!m_logAudio) {
 			if (g_Config.bDumpAudio) {
@@ -406,20 +430,27 @@ void __AudioUpdate() {
 
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-    return resampler.Mix(outstereo, numFrames, false, sampleRate);
+int __AudioMix(s16 *outstereo, int numFrames, int sampleRate) {
+	if (audioQueue) {
+		return audioQueue->Mix(outstereo, numFrames, false, sampleRate);
+	} else {
+		memset(outstereo, 0, numFrames * 2 * sizeof(s16));
+		return numFrames;
+	}
 }
 
 const AudioDebugStats *__AudioGetDebugStats() {
-	resampler.GetAudioDebugStats(&g_AudioDebugStats);
+	audioQueue->GetAudioDebugStats(&g_AudioDebugStats);
 	return &g_AudioDebugStats;
 }
 
 void __PushExternalAudio(const s32 *audio, int numSamples) {
+	UpdateAudioQueue();
+
 	if (audio) {
-		resampler.PushSamples(audio, numSamples);
+		audioQueue->PushSamples(audio, numSamples);
 	} else {
-		resampler.Clear();
+		audioQueue->Clear();
 	}
 }
 #ifndef MOBILE_DEVICE

@@ -20,31 +20,29 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
 #include "base/mutex.h"
 
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
 
-struct AudioDebugStats;
+#include "Core/HW/AsyncAudioQueue.h"
 
-class StereoResampler {
+
+class StereoResampler : public AsyncAudioQueue {
 public:
 	StereoResampler();
-	~StereoResampler();
 
 	// Called from audio threads
-	unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sampleRate);
+	unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sampleRate) override;
 
 	// Called from main thread
 	// This clamps the samples to 16-bit before starting to work on them.
-	void PushSamples(const s32* samples, unsigned int num_samples);
+	void PushSamples(const s32* samples, unsigned int num_samples) override;
 
-	void Clear();
-
-	void DoState(PointerWrap &p);
-
-	void GetAudioDebugStats(AudioDebugStats *stats);
+	void GetAudioDebugStats(AudioDebugStats *stats) override;
+	void Clear() override;
 
 protected:
 	void UpdateBufferSize();
@@ -53,7 +51,7 @@ protected:
 	int m_bufsize;
 	int m_lowwatermark;
 	unsigned int m_input_sample_rate;
-	int16_t *m_buffer;
+	std::unique_ptr<int16_t[]> m_buffer;
 	volatile u32 m_indexW;
 	volatile u32 m_indexR;
 	float m_numLeftI;
